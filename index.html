@@ -197,3 +197,82 @@ HTML
     </script>
 </body>
 </html>
+if (chatListener) chatListener();
+    const chatId = getChatId(currentUID, targetUser.uid);
+    const q = query(collection(db, "conversations", chatId, "messages"), orderBy("timestamp"));
+    
+    chatListener = onSnapshot(q, (snap) => {
+        const box = document.getElementById("chatMessages");
+        box.innerHTML = "";
+        snap.forEach(m => {
+            const d = m.data();
+            const isMe = d.from === currentUID;
+            box.innerHTML += <div class="msg ${isMe ? 'msg-me' : 'msg-them'}">${d.text}</div>;
+        });
+        box.scrollTop = box.scrollHeight;
+    });
+    listenUsers();
+}
+
+document.getElementById("sendChatBtn").onclick = async () => {
+    const text = document.getElementById("chatInput").value;
+    if (!text || !activeChatUID) return;
+    await addDoc(collection(db, "conversations", getChatId(currentUID, activeChatUID), "messages"), {
+        from: currentUID,
+        name: auth.currentUser.displayName,
+        text: text,
+        timestamp: serverTimestamp()
+    });
+    document.getElementById("chatInput").value = "";
+};
+
+document.getElementById("mainBtn").onclick = async () => {
+    const text = document.getElementById("contentInput").value;
+    const img = document.getElementById("imageUrlInput").value;
+    if (!text && !img) return;
+    await addDoc(collection(db, "requests"), {
+        name: auth.currentUser.displayName,
+        text: text || "",
+        imageUrl: img || "",
+        reactions: { like: 0, fire: 0, laugh: 0 },
+        timestamp: serverTimestamp()
+    });
+    document.getElementById("contentInput").value = "";
+    document.getElementById("imageUrlInput").value = "";
+};
+
+onSnapshot(query(collection(db, "requests"), orderBy("timestamp", "desc")), (snap) => {
+    const feed = document.getElementById("feed");
+    feed.innerHTML = "";
+    snap.forEach(d => {
+        const p = d.data();
+        const id = d.id;
+        feed.innerHTML += `
+            <div class="post">
+                <div class="post-header">
+                    <span class="author-name">${p.name}</span>
+                    <span class="post-time">${p.timestamp?.toDate().toLocaleTimeString() || ''}</span>
+                </div>
+                ${p.text ? <div class="post-content">${p.text}</div> : ''}
+                ${p.imageUrl ? <img src="${p.imageUrl}"> : ''}
+                <div class="reactions">
+                    <button class="react-btn" onclick="window.react('${id}','like')"><span>👍</span> <b>${p.reactions?.like || 0}</b></button>
+                    <button class="react-btn" onclick="window.react('${id}','fire')"><span>🔥</span> <b>${p.reactions?.fire || 0}</b></button>
+                    <button class="react-btn" onclick="window.react('${id}','laugh')"><span>😂</span> <b>${p.reactions?.laugh || 0}</b></button>
+                </div>
+            </div>`;
+    });
+});
+    const themeToggle = document.getElementById("themeToggle");
+themeToggle.onclick = () => {
+    document.body.classList.toggle("dark");
+    themeToggle.innerText = document.body.classList.contains("dark") ? "☀️ Светлая" : "🌙 Тема";
+};
+
+window.react = async (id, type) => {
+    const docRef = doc(db, "requests", id);
+    await updateDoc(docRef, { [`reactions.${type}`]: increment(1) });
+};
+</script>
+</body>
+</html>
